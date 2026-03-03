@@ -1,123 +1,115 @@
-<div class="dashboard-wrapper">
+<div class="dashboard-container">
   <header class="main-header">
     <div class="brand">
-      <img src="assets/subex.png" class="logo">
+      <img src="assets/subex.png" class="subex-logo">
       <h1>EDGE Review</h1>
     </div>
-    <div class="date-section">
-      <div class="date-picker-group">
-        <label>Report Date:</label>
-        <input type="date" [(ngModel)]="presentationDate" (change)="loadData()">
-        <span class="view-date">{{ formatDate(presentationDate) }}</span>
+    <div class="header-controls">
+      <div class="date-group">
+        <label>Review Date:</label>
+        <input type="date" [(ngModel)]="presentationDate" (change)='loadData()'>
+        <span class="formatted-display">{{ displayDate(presentationDate) }}</span>
       </div>
-      <div class="save-status">Last Saved: <span>{{ lastSavedDate }}</span></div>
-      <button (click)="saveReport()" class="btn-save">Save & Export Report</button>
+      <div class="save-info">{{ lastSavedLabel }}</div>
+      <button (click)="saveReport()" class="btn-primary">Save & Export</button>
       <button (click)="logout()" class="btn-logout">Logout</button>
     </div>
   </header>
 
-  <section class="summary-grid">
-    <div class="summary-card">Projects: <strong>{{ projects.length }}</strong></div>
-    <div class="summary-card">Live: <strong>{{ liveCount }}</strong></div>
-    <div class="summary-card">Support: <strong>{{ supportCount }}</strong></div>
-    <div class="summary-card rag-red">Red: <strong>{{ ragStats.red }}</strong></div>
-    <div class="summary-card rag-amber">Amber: <strong>{{ ragStats.amber }}</strong></div>
-    <div class="summary-card rag-green">Green: <strong>{{ ragStats.green }}</strong></div>
-    <div class="summary-card input-box">Tickets: <input type="number" [(ngModel)]="edgeTickets"></div>
-    <div class="summary-card input-box">Code Fixes: <input type="number" [(ngModel)]="codeFixes"></div>
-    <div class="summary-card input-box">Open: <input type="number" [(ngModel)]="openIssues"></div>
+  <section class="summary-ribbon">
+    <div class="sum-card">Projects: <strong>{{ projects.length }}</strong></div>
+    <div class="sum-card">Live/Support: <strong>{{ totals.live }}/{{ totals.support }}</strong></div>
+    <div class="sum-card r-border">RED: <strong>{{ totals.red }}</strong></div>
+    <div class="sum-card a-border">AMBER: <strong>{{ totals.amber }}</strong></div>
+    <div class="sum-card g-border">GREEN: <strong>{{ totals.green }}</strong></div>
+    <div class="sum-card rev-card">Target: <strong>{{ totals.revenueTarget | number }}</strong></div>
+    <div class="sum-card risk-card">At Risk: <strong>{{ totals.revenueAtRisk | number }}</strong></div>
+    <div class="sum-card input-sum">Tickets: <input type="number" [(ngModel)]="edgeTickets"></div>
+    <div class="sum-card input-sum">Fixes: <input type="number" [(ngModel)]="codeFixes"></div>
+    <div class="sum-card input-sum">Open: <input type="number" [(ngModel)]="openIssues"></div>
   </section>
 
-  <div class="table-container">
-    <table class="main-table">
+  <div class="table-outer">
+    <table class="edge-table">
       <thead>
         <tr>
-          <th style="width: 150px;">Customer Name</th>
+          <th style="width: 150px;">Customer</th>
           <th style="width: 100px;">RAG</th>
           <th style="width: 130px;">Status</th>
           <th>Rev Target</th>
-          <th>At Risk?</th>
+          <th style="width: 80px;">At Risk</th>
           <th>Current Milestone</th>
-          <th>Planned Closure</th>
-          <th>Actual Closure</th>
+          <th>Planned Date</th>
+          <th>Actual Date</th>
           <th>Upcoming</th>
-          <th style="width: 350px;">Key Callouts</th>
+          <th style="width: 400px;">Key Callouts</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let p of projects; let i = index">
-          <td><input [(ngModel)]="p.customer"></td>
+          <td><input [(ngModel)]="p.customer" class="cell-input"></td>
           <td [attr.data-rag]="p.rag">
-            <select [(ngModel)]="p.rag">
+            <select [(ngModel)]="p.rag" class="cell-select">
               <option value="RED">RED</option><option value="AMBER">AMBER</option><option value="GREEN">GREEN</option>
             </select>
           </td>
           <td>
-            <select [(ngModel)]="p.status">
-              <option>Live</option><option>Support</option><option>Implementation</option>
-              <option>UAT</option><option>Parallel Run</option>
+            <select [(ngModel)]="p.status" class="cell-select">
+              <option>Live</option><option>Support</option><option>Implementation</option><option>UAT</option><option>Parallel Run</option>
             </select>
           </td>
-          <td><input type="number" [(ngModel)]="p.revTarget"></td>
-          <td [class.risk-yes]="p.revAtRisk === 'Yes'">
-            <select [(ngModel)]="p.revAtRisk">
+          <td><input type="number" [(ngModel)]="p.revTarget" class="cell-input"></td>
+          <td [class.risk-highlight]="p.revAtRisk === 'Yes'">
+            <select [(ngModel)]="p.revAtRisk" class="cell-select">
               <option value="No">No</option><option value="Yes">Yes</option>
             </select>
           </td>
-          <td><input [(ngModel)]="p.milestone"></td>
-          <td>
-            <div class="date-cell">
-              <input type="date" [(ngModel)]="p.planned">
-              <small>{{ formatDate(p.planned) }}</small>
-            </div>
+          <td><input [(ngModel)]="p.milestone" class="cell-input"></td>
+          <td class="date-cell">
+            <input type="date" [(ngModel)]="p.planned">
+            <div class="date-label">{{ displayDate(p.planned) }}</div>
           </td>
-          <td>
-            <div class="date-cell">
-              <input type="date" [(ngModel)]="p.actual">
-              <small>{{ formatDate(p.actual) }}</small>
-            </div>
+          <td class="date-cell">
+            <input type="date" [(ngModel)]="p.actual">
+            <div class="date-label">{{ displayDate(p.actual) }}</div>
           </td>
-          <td><input [(ngModel)]="p.upcoming"></td>
-          <td><textarea [(ngModel)]="p.callouts"></textarea></td>
-          <td><button (click)="removeProject(i)" class="btn-del">×</button></td>
+          <td><input [(ngModel)]="p.upcoming" class="cell-input"></td>
+          <td><textarea [(ngModel)]="p.callouts" class="cell-area"></textarea></td>
+          <td><button (click)="removeProject(i)" class="btn-icon">×</button></td>
         </tr>
       </tbody>
     </table>
-    <button (click)="addProject()" class="btn-add">+ Add Project Row</button>
+    <button (click)="addProject()" class="btn-add-row">+ Add Project</button>
   </div>
 
-  <footer class="action-footer">
+  <section class="action-section">
     <div class="action-header">
-      <h2>Weekly Actions</h2>
-      <select [(ngModel)]="actionFilter" class="filter-select">
-        <option value="All">All Actions</option>
-        <option value="Open">Open Only</option>
-        <option value="Closed">Closed Only</option>
+      <h2>Action Items</h2>
+      <select [(ngModel)]="actionFilter" class="filter-dropdown">
+        <option value="All">All Statuses</option><option value="Open">Open Only</option><option value="Closed">Closed Only</option>
       </select>
     </div>
-    <div class="action-input-row">
-      <input [(ngModel)]="newActionText" placeholder="Describe new action item...">
-      <button (click)="addAction()">Add Action</button>
+    <div class="action-bar">
+      <input [(ngModel)]="newActionText" placeholder="Enter new action item..." class="action-text-input">
+      <button (click)="addAction()" class="btn-action">Add Action</button>
     </div>
     <table class="action-table">
       <thead>
-        <tr><th>Action Description</th><th>Status</th><th>Comments</th><th>Closure Date</th><th></th></tr>
+        <tr><th>Description</th><th>Status</th><th>Comments</th><th>Closure Date</th><th></th></tr>
       </thead>
       <tbody>
         <tr *ngFor="let a of filteredActions; let i = index">
           <td>{{ a.text }}</td>
-          <td><select [(ngModel)]="a.status"><option>Open</option><option>Closed</option></select></td>
-          <td><input [(ngModel)]="a.comment" placeholder="Add comment..."></td>
-          <td>
-             <div class="date-cell">
-               <input type="date" [(ngModel)]="a.closureDate">
-               <small>{{ formatDate(a.closureDate) }}</small>
-             </div>
+          <td><select [(ngModel)]="a.status" class="cell-select"><option>Open</option><option>Closed</option></select></td>
+          <td><input [(ngModel)]="a.comment" class="cell-input" placeholder="Add comment..."></td>
+          <td class="date-cell">
+            <input type="date" [(ngModel)]="a.closureDate">
+            <div class="date-label">{{ displayDate(a.closureDate) }}</div>
           </td>
-          <td><button (click)="removeAction(i)" class="btn-del">×</button></td>
+          <td><button (click)="removeAction(i)" class="btn-icon">×</button></td>
         </tr>
       </tbody>
     </table>
-  </footer>
+  </section>
 </div>

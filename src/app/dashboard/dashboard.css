@@ -1,0 +1,40 @@
+.dashboard-wrapper { background: #000; color: #fff; min-height: 100vh; padding: 20px; font-family: 'Segoe UI', sans-serif; }
+.main-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 15px; }
+.logo { height: 35px; margin-right: 15px; }
+.brand { display: flex; align-items: center; }
+.view-date { color: #f37021; font-weight: bold; margin-left: 10px; font-size: 0.9rem; }
+.save-status { font-size: 0.75rem; color: #888; margin-bottom: 5px; }
+
+/* Summary */
+.summary-grid { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.summary-card { background: #111; border: 1px solid #333; padding: 10px 15px; border-radius: 4px; min-width: 100px; text-align: center; }
+.summary-card strong { display: block; font-size: 1.4rem; color: #fff; }
+.rag-red { border-top: 4px solid #ff4d4d; }
+.rag-amber { border-top: 4px solid #ffa500; }
+.rag-green { border-top: 4px solid #00ff88; }
+.input-box input { width: 50px; background: #222; border: 1px solid #444; color: #fff; text-align: center; }
+
+/* Main Table */
+.table-container { overflow-x: auto; margin-top: 20px; }
+.main-table { width: 100%; border-collapse: collapse; background: #080808; font-size: 0.8rem; }
+th { background: #1a1a1a; padding: 12px; border: 1px solid #333; color: #aaa; text-transform: uppercase; }
+td { border: 1px solid #333; padding: 4px; vertical-align: top; }
+input, select, textarea { background: transparent; color: #fff; border: none; width: 100%; outline: none; padding: 5px; }
+textarea { height: 70px; resize: vertical; }
+
+/* Specific Logic Styles */
+[data-rag="RED"] { background: rgba(255, 77, 77, 0.4); }
+[data-rag="AMBER"] { background: rgba(255, 165, 0, 0.4); }
+[data-rag="GREEN"] { background: rgba(0, 255, 136, 0.2); }
+.risk-yes { background: rgba(255, 0, 0, 0.6) !important; animation: blink 2s infinite; }
+.date-cell small { display: block; color: #f37021; font-size: 0.7rem; margin-top: 2px; }
+
+/* Buttons */
+.btn-save { background: #f37021; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-add { margin-top: 15px; background: #333; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; }
+.btn-del { color: #ff4d4d; background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+
+/* Actions */
+.action-footer { margin-top: 40px; background: #111; padding: 20px; border-radius: 8px; }
+.action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.action-table { width: 100%; border-collapse: collapse; margin-top: 10px; }

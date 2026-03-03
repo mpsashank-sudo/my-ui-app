@@ -1,13 +1,123 @@
-<div style="padding: 30px; font-family: sans-serif;">
-  <h1 style="color: #2c3e50;">User Dashboard</h1>
-  <div style="background: #e9ecef; padding: 20px; border-radius: 8px;">
-    <h3>Active Session Info</h3>
-    <p><strong>Username:</strong> Sashank</p>
-    <p><strong>Environment:</strong> Localhost:4200</p>
-    <p><strong>Status:</strong> Success</p>
+<div class="dashboard-wrapper">
+  <header class="main-header">
+    <div class="brand">
+      <img src="assets/subex.png" class="logo">
+      <h1>EDGE Review</h1>
+    </div>
+    <div class="date-section">
+      <div class="date-picker-group">
+        <label>Report Date:</label>
+        <input type="date" [(ngModel)]="presentationDate" (change)="loadData()">
+        <span class="view-date">{{ formatDate(presentationDate) }}</span>
+      </div>
+      <div class="save-status">Last Saved: <span>{{ lastSavedDate }}</span></div>
+      <button (click)="saveReport()" class="btn-save">Save & Export Report</button>
+      <button (click)="logout()" class="btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <section class="summary-grid">
+    <div class="summary-card">Projects: <strong>{{ projects.length }}</strong></div>
+    <div class="summary-card">Live: <strong>{{ liveCount }}</strong></div>
+    <div class="summary-card">Support: <strong>{{ supportCount }}</strong></div>
+    <div class="summary-card rag-red">Red: <strong>{{ ragStats.red }}</strong></div>
+    <div class="summary-card rag-amber">Amber: <strong>{{ ragStats.amber }}</strong></div>
+    <div class="summary-card rag-green">Green: <strong>{{ ragStats.green }}</strong></div>
+    <div class="summary-card input-box">Tickets: <input type="number" [(ngModel)]="edgeTickets"></div>
+    <div class="summary-card input-box">Code Fixes: <input type="number" [(ngModel)]="codeFixes"></div>
+    <div class="summary-card input-box">Open: <input type="number" [(ngModel)]="openIssues"></div>
+  </section>
+
+  <div class="table-container">
+    <table class="main-table">
+      <thead>
+        <tr>
+          <th style="width: 150px;">Customer Name</th>
+          <th style="width: 100px;">RAG</th>
+          <th style="width: 130px;">Status</th>
+          <th>Rev Target</th>
+          <th>At Risk?</th>
+          <th>Current Milestone</th>
+          <th>Planned Closure</th>
+          <th>Actual Closure</th>
+          <th>Upcoming</th>
+          <th style="width: 350px;">Key Callouts</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of projects; let i = index">
+          <td><input [(ngModel)]="p.customer"></td>
+          <td [attr.data-rag]="p.rag">
+            <select [(ngModel)]="p.rag">
+              <option value="RED">RED</option><option value="AMBER">AMBER</option><option value="GREEN">GREEN</option>
+            </select>
+          </td>
+          <td>
+            <select [(ngModel)]="p.status">
+              <option>Live</option><option>Support</option><option>Implementation</option>
+              <option>UAT</option><option>Parallel Run</option>
+            </select>
+          </td>
+          <td><input type="number" [(ngModel)]="p.revTarget"></td>
+          <td [class.risk-yes]="p.revAtRisk === 'Yes'">
+            <select [(ngModel)]="p.revAtRisk">
+              <option value="No">No</option><option value="Yes">Yes</option>
+            </select>
+          </td>
+          <td><input [(ngModel)]="p.milestone"></td>
+          <td>
+            <div class="date-cell">
+              <input type="date" [(ngModel)]="p.planned">
+              <small>{{ formatDate(p.planned) }}</small>
+            </div>
+          </td>
+          <td>
+            <div class="date-cell">
+              <input type="date" [(ngModel)]="p.actual">
+              <small>{{ formatDate(p.actual) }}</small>
+            </div>
+          </td>
+          <td><input [(ngModel)]="p.upcoming"></td>
+          <td><textarea [(ngModel)]="p.callouts"></textarea></td>
+          <td><button (click)="removeProject(i)" class="btn-del">×</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <button (click)="addProject()" class="btn-add">+ Add Project Row</button>
   </div>
-  <br>
-  <button (click)="logout()" style="color: red; cursor: pointer; background: none; border: 1px solid red; padding: 5px 15px; border-radius: 4px;">
-    Logout
-  </button>
+
+  <footer class="action-footer">
+    <div class="action-header">
+      <h2>Weekly Actions</h2>
+      <select [(ngModel)]="actionFilter" class="filter-select">
+        <option value="All">All Actions</option>
+        <option value="Open">Open Only</option>
+        <option value="Closed">Closed Only</option>
+      </select>
+    </div>
+    <div class="action-input-row">
+      <input [(ngModel)]="newActionText" placeholder="Describe new action item...">
+      <button (click)="addAction()">Add Action</button>
+    </div>
+    <table class="action-table">
+      <thead>
+        <tr><th>Action Description</th><th>Status</th><th>Comments</th><th>Closure Date</th><th></th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let a of filteredActions; let i = index">
+          <td>{{ a.text }}</td>
+          <td><select [(ngModel)]="a.status"><option>Open</option><option>Closed</option></select></td>
+          <td><input [(ngModel)]="a.comment" placeholder="Add comment..."></td>
+          <td>
+             <div class="date-cell">
+               <input type="date" [(ngModel)]="a.closureDate">
+               <small>{{ formatDate(a.closureDate) }}</small>
+             </div>
+          </td>
+          <td><button (click)="removeAction(i)" class="btn-del">×</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </footer>
 </div>

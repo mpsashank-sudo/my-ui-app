@@ -3,6 +3,7 @@ import { isPlatformBrowser } from '@angular/common'; // Added this
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 @Component({
   selector: 'app-dashboard',
@@ -23,6 +24,10 @@ export class DashboardComponent implements OnInit {
   codeFixes: number = 0;
   openIssues: number = 0;
   actionFilter: string = 'All';
+  isChatOpen: boolean = false;
+chatInput: string = '';
+chatHistory: { role: 'user' | 'bot', text: string }[] = [];
+isLoading: boolean = false;
 
 constructor(
   private router: Router,
@@ -124,6 +129,68 @@ saveReport() {
     a.download = `EDGE_Review_${this.presentationDate}.csv`;
     a.click();
   }
+
+  // 3. Add the Chat Functionality
+async sendMessage() {
+  if (!this.chatInput.trim()) return;
+
+  const userMessage = this.chatInput;
+  this.chatHistory.push({ role: 'user', text: userMessage });
+  this.chatInput = '';
+  this.isLoading = true;
+
+  try {
+    // --- STEP A: GATHER DASHBOARD CONTEXT ---
+    // This loops through your browser memory to find all "edge_report_" entries
+    const allHistory = Object.keys(localStorage)
+      .filter(k => k.startsWith('edge_report_'))
+      .map(k => {
+        const date = k.replace('edge_report_', '');
+        const data = JSON.parse(localStorage.getItem(k) || '{}');
+        
+        // We format the projects into a readable string for the AI
+        const projectSummary = data.projects?.map((p: any) => 
+          `- Customer: ${p.customer}, RAG: ${p.rag}, Status: ${p.status}, Target: ${p.revTarget}, Milestone: ${p.milestone}, Callouts: ${p.callouts}`
+        ).join('\n');
+
+        return `REPORT DATE: ${date}\n${projectSummary}`;
+      })
+      .join("\n\n---\n\n");
+
+    // --- STEP B: INITIALIZE AI ---
+    const genAI = new GoogleGenerativeAI("AIzaSyCxT4qkoHCD-5jYRJahRs03_p_ga324Jqg");
+    // Using the model that worked for you
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+    // --- STEP C: CREATE THE PROMPT ---
+    const systemPrompt = `
+      You are the "EDGE Assistant". You have access to the user's historical project status reports below.
+      
+      HISTORICAL DATA:
+      ${allHistory || "No data found yet. The user hasn't saved any reports."}
+
+      INSTRUCTIONS:
+      1. Use the data above to answer the user's question accurately.
+      2. If the user asks about a specific date, look for the "REPORT DATE" matches.
+      3. If the data is missing, say "I don't have a record of that in my history."
+      4. Be concise and professional.
+    `;
+
+    // --- STEP D: GENERATE RESPONSE ---
+    const result = await model.generateContent(`${systemPrompt}\n\nUSER QUESTION: ${userMessage}`);
+    const response = await result.response;
+    
+    this.chatHistory.push({ role: 'bot', text: response.text() });
+
+  } catch (error: any) {
+    console.error("Chat Error:", error);
+    this.chatHistory.push({ role: 'bot', text: "Sorry, I hit a snag: " + error.message });
+  } finally {
+    this.isLoading = false;
+  }
+}
+
+toggleChat() { this.isChatOpen = !this.isChatOpen; }
 
   logout() { this.router.navigate(['/login']); }
 }

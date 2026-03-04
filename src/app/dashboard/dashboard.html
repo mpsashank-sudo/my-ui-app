@@ -113,3 +113,23 @@
     </table>
   </section>
 </div>
+<div class="chat-bubble" (click)="toggleChat()">
+  <span>💬</span>
+</div>
+
+<div class="chat-window" *ngIf="isChatOpen">
+  <div class="chat-header">
+    <h3>EDGE AI Assistant</h3>
+    <button (click)="toggleChat()">×</button>
+  </div>
+  <div class="chat-body">
+    <div *ngFor="let msg of chatHistory" [ngClass]="msg.role">
+      <p>{{ msg.text }}</p>
+    </div>
+    <div *ngIf="isLoading" class="bot">...typing</div>
+  </div>
+  <div class="chat-footer">
+    <input [(ngModel)]="chatInput" (keyup.enter)="sendMessage()" placeholder="Ask about project history...">
+    <button (click)="sendMessage()">Send</button>
+  </div>
+</div>

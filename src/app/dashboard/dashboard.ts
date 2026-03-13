@@ -15,10 +15,15 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 export class DashboardComponent implements OnInit {
   presentationDate: string = new Date().toISOString().split('T')[0];
   lastSavedLabel: string = 'No previous data found';
+  private readonly CHAT_STORAGE_KEY = 'edge_assist_history';
+  private readonly MAX_CHAT_CONTEXT = 10;
+  private readonly MAX_CHAT_HISTORY = 100;
+  private readonly MAX_REPORTS_FOR_CHAT = 30;
   
   projects: any[] = [];
   actions: any[] = [];
   newActionText: string = '';
+  newActionOwner: string = '';
   
   edgeTickets: number = 0;
   codeFixes: number = 0;
@@ -26,7 +31,7 @@ export class DashboardComponent implements OnInit {
   actionFilter: string = 'All';
   isChatOpen: boolean = false;
 chatInput: string = '';
-chatHistory: { role: 'user' | 'bot', text: string }[] = [];
+chatHistory: { role: 'user' | 'bot', text: string, timestamp?: string }[] = [];
 isLoading: boolean = false;
 
 constructor(
@@ -36,6 +41,28 @@ constructor(
 
   ngOnInit() {
     this.loadData();
+    this.loadChatHistory();
+  }
+
+  private isBrowser(): boolean {
+    return isPlatformBrowser(this.platformId);
+  }
+
+  private safeJsonParse<T>(raw: string | null, fallback: T): T {
+    if (!raw) return fallback;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private getAiApiKey(): string | null {
+    if (!this.isBrowser()) return null;
+    const key = (window as any).EDGE_AI_API_KEY;
+    if (typeof key !== 'string') return null;
+    const trimmed = key.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   // Format Date to DD-MON-YYYY
@@ -48,11 +75,11 @@ constructor(
 
   loadData() {
   // Only run this if we are in the browser
-  if (isPlatformBrowser(this.platformId)) {
+  if (this.isBrowser()) {
     const currentData = localStorage.getItem(`edge_report_${this.presentationDate}`);
     
     if (currentData) {
-      this.applyData(JSON.parse(currentData));
+      this.applyData(this.safeJsonParse(currentData, {}));
       this.lastSavedLabel = `Viewing saved data for ${this.displayDate(this.presentationDate)}`;
     } else {
       const allKeys = Object.keys(localStorage)
@@ -60,7 +87,7 @@ constructor(
         .sort().reverse();
 
       if (allKeys.length > 0) {
-        this.applyData(JSON.parse(localStorage.getItem(allKeys[0])!));
+        this.applyData(this.safeJsonParse(localStorage.getItem(allKeys[0]), {}));
         this.lastSavedLabel = `Inherited from ${this.displayDate(allKeys[0].replace('edge_report_', ''))}`;
       } else {
         this.resetDashboard();
@@ -86,8 +113,23 @@ constructor(
   // Project/Action Management
   addProject() { this.projects.push({ customer: '', rag: 'GREEN', status: 'Implementation', revTarget: 0, revAtRisk: 'No', milestone: '', planned: '', actual: '', upcoming: '', callouts: '' }); }
   removeProject(i: number) { this.projects.splice(i, 1); }
-  addAction() { if (this.newActionText) { this.actions.push({ text: this.newActionText, status: 'Open', comment: '', closureDate: '' }); this.newActionText = ''; } }
-  removeAction(i: number) { this.actions.splice(i, 1); }
+addAction() {
+  if (this.newActionText.trim()) {
+    this.actions.push({
+      text: this.newActionText,
+      status: 'Open',
+      comment: '',
+      owner: this.newActionOwner || 'Unassigned', // Uses the small input or default
+      raisedDate: new Date().toISOString().split('T')[0], // Sets to today's date
+      closureDate: ''
+    });
+    
+    // Reset inputs
+    this.newActionText = '';
+    this.newActionOwner = '';
+    this.saveReport(); // Ensure this triggers your localStorage save
+  }
+}  removeAction(i: number) { this.actions.splice(i, 1); }
 
   // Computed Totals for Summary
   get totals() {
@@ -110,7 +152,7 @@ saveReport() {
   const payload = { projects: this.projects, actions: this.actions, edgeTickets: this.edgeTickets, codeFixes: this.codeFixes, openIssues: this.openIssues };
   
   // Guard the save logic
-  if (isPlatformBrowser(this.platformId)) {
+  if (this.isBrowser()) {
     localStorage.setItem(`edge_report_${this.presentationDate}`, JSON.stringify(payload));
     this.lastSavedLabel = `Last Saved: ${this.displayDate(this.presentationDate)}`;
     this.exportToCSV();
@@ -118,9 +160,11 @@ saveReport() {
 }
 
   exportToCSV() {
+    if (!this.isBrowser()) return;
     let csv = "Customer,RAG,Status,RevTarget,AtRisk,Milestone,Planned,Actual,Upcoming,Callouts\n";
     this.projects.forEach(p => {
-      csv += `${p.customer},${p.rag},${p.status},${p.revTarget},${p.revAtRisk},${p.milestone},${p.planned},${p.actual},${p.upcoming},"${p.callouts.replace(/"/g, '""')}"\n`;
+      const callouts = String(p.callouts ?? '').replace(/"/g, '""');
+      csv += `${p.customer},${p.rag},${p.status},${p.revTarget},${p.revAtRisk},${p.milestone},${p.planned},${p.actual},${p.upcoming},"${callouts}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -132,55 +176,71 @@ saveReport() {
 
   // 3. Add the Chat Functionality
 async sendMessage() {
+  if (!this.isBrowser()) return;
   if (!this.chatInput.trim()) return;
 
-  const userMessage = this.chatInput;
-  this.chatHistory.push({ role: 'user', text: userMessage });
+  // 1. Capture User Input with Timestamp
+  const userText = this.chatInput;
+const userMessage = { 
+  role: 'user' as const, // The 'as const' tells TS this isn't just any string
+  text: userText, 
+  timestamp: new Date().toISOString() 
+};
+  
+  this.chatHistory.push(userMessage);
+  this.trimChatHistory();
   this.chatInput = '';
   this.isLoading = true;
+  this.saveChatToLocal(); // Helper to persist chat immediately
 
   try {
-    // --- STEP A: GATHER DASHBOARD CONTEXT ---
-    // This loops through your browser memory to find all "edge_report_" entries
-    const allHistory = Object.keys(localStorage)
-      .filter(k => k.startsWith('edge_report_'))
-      .map(k => {
-        const date = k.replace('edge_report_', '');
-        const data = JSON.parse(localStorage.getItem(k) || '{}');
-        
-        // We format the projects into a readable string for the AI
-        const projectSummary = data.projects?.map((p: any) => 
-          `- Customer: ${p.customer}, RAG: ${p.rag}, Status: ${p.status}, Target: ${p.revTarget}, Milestone: ${p.milestone}, Callouts: ${p.callouts}`
-        ).join('\n');
+    // --- STEP A: GATHER DASHBOARD DATA (Hard Facts) ---
+    const allReports = this.buildReportsContext(this.MAX_REPORTS_FOR_CHAT);
 
-        return `REPORT DATE: ${date}\n${projectSummary}`;
-      })
-      .join("\n\n---\n\n");
+    // --- STEP B: GATHER CONVERSATION CONTEXT (The Flow) ---
+    const recentChatContext = this.buildChatContext(this.MAX_CHAT_CONTEXT);
 
-    // --- STEP B: INITIALIZE AI ---
-    const genAI = new GoogleGenerativeAI("AIzaSyCxT4qkoHCD-5jYRJahRs03_p_ga324Jqg");
-    // Using the model that worked for you
+    // --- STEP C: INITIALIZE AI ---
+    const apiKey = this.getAiApiKey();
+    if (!apiKey) {
+      this.chatHistory.push({ role: 'bot', text: 'AI chat is not configured. Please set EDGE_AI_API_KEY in the browser.' });
+      this.saveChatToLocal();
+      return;
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-    // --- STEP C: CREATE THE PROMPT ---
+    // --- STEP D: CREATE THE ENHANCED PROMPT ---
     const systemPrompt = `
-      You are the "EDGE Assistant". You have access to the user's historical project status reports below.
+      You are the "EDGE AI Assist". 
       
-      HISTORICAL DATA:
-      ${allHistory || "No data found yet. The user hasn't saved any reports."}
+      DASHBOARD DATA (Project History):
+      ${allReports || "No reports saved."}
+
+      RECENT CONVERSATION (Memory):
+      ${recentChatContext}
 
       INSTRUCTIONS:
-      1. Use the data above to answer the user's question accurately.
-      2. If the user asks about a specific date, look for the "REPORT DATE" matches.
-      3. If the data is missing, say "I don't have a record of that in my history."
-      4. Be concise and professional.
+      1. Use the Dashboard Data for technical/status facts.
+      2. Use the Recent Conversation to understand follow-up questions.
+      3. Be concise, professional, and delivery-focused.
     `;
 
-    // --- STEP D: GENERATE RESPONSE ---
-    const result = await model.generateContent(`${systemPrompt}\n\nUSER QUESTION: ${userMessage}`);
+    // --- STEP E: GENERATE RESPONSE ---
+    const result = await model.generateContent(`${systemPrompt}\n\nUSER QUESTION: ${userText}`);
     const response = await result.response;
+    const botText = response.text();
     
-    this.chatHistory.push({ role: 'bot', text: response.text() });
+    // 2. Capture Bot Response with Timestamp
+const botMessage = { 
+  role: 'bot' as const, // Explicitly lock this to the "bot" type
+  text: botText, 
+  timestamp: new Date().toISOString() 
+};
+    
+    this.chatHistory.push(botMessage);
+    this.trimChatHistory();
+    this.saveChatToLocal(); // Save again after bot responds
 
   } catch (error: any) {
     console.error("Chat Error:", error);
@@ -190,7 +250,65 @@ async sendMessage() {
   }
 }
 
+// Ensure you have this helper method in your class
+saveChatToLocal() {
+  if (this.isBrowser()) {
+    this.trimChatHistory();
+    localStorage.setItem(this.CHAT_STORAGE_KEY, JSON.stringify(this.chatHistory));
+  }
+}
+
+loadChatHistory() {
+  if (this.isBrowser()) {
+    const data = localStorage.getItem(this.CHAT_STORAGE_KEY);
+    if (data) {
+      this.chatHistory = this.safeJsonParse(data, []);
+      this.trimChatHistory();
+    }
+  }
+}
+
 toggleChat() { this.isChatOpen = !this.isChatOpen; }
 
   logout() { this.router.navigate(['/login']); }
+
+  private trimChatHistory() {
+    if (this.chatHistory.length > this.MAX_CHAT_HISTORY) {
+      this.chatHistory = this.chatHistory.slice(-this.MAX_CHAT_HISTORY);
+    }
+  }
+
+  private buildChatContext(maxMessages: number): string {
+    return this.chatHistory
+      .slice(-maxMessages)
+      .map(m => `${m.role.toUpperCase()}: ${m.text}`)
+      .join('\n');
+  }
+
+  private buildReportsContext(maxReports: number): string {
+    if (!this.isBrowser()) return '';
+    const keys = Object.keys(localStorage)
+      .filter(k => k.startsWith('edge_report_'))
+      .sort()
+      .reverse()
+      .slice(0, maxReports);
+
+    return keys
+      .map(k => {
+        const date = k.replace('edge_report_', '');
+        const data = this.safeJsonParse(localStorage.getItem(k), {});
+        const projectSummary = (data as any).projects?.map((p: any) => 
+          `- Customer: ${p.customer}, RAG: ${p.rag}, Status: ${p.status}, Target: ${p.revTarget}`
+        ).join('\n');
+
+        const actionSummary = (data as any).actions?.map((a: any) => 
+          `- Action: ${a.text}, Owner: ${a.owner}, Status: ${a.status}`
+        ).join('\n');
+
+        const kpis = `* Code Fixes: ${(data as any).codeFixes || 0}, * Tickets: ${(data as any).edgeTickets || 0}, * Issues: ${(data as any).openIssues || 0}`;
+
+        return `REPORT DATE: ${date}\nKPIs: ${kpis}\nPROJECTS:\n${projectSummary}\nACTIONS:\n${actionSummary}`;
+      })
+      .join("\n\n---\n\n");
+  }
 }

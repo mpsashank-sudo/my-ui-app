@@ -1,22 +1,42 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
-import { Login } from './login';
+import { ActivatedRoute } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
+import { LoginComponent } from './login';
 
 describe('Login', () => {
-  let component: Login;
-  let fixture: ComponentFixture<Login>;
+  let component: LoginComponent;
+  let fixture: ComponentFixture<LoginComponent>;
 
-  beforeEach(async () => {
+  const setup = async (returnUrl: unknown) => {
+    TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      imports: [Login],
+      imports: [LoginComponent, RouterTestingModule],
+      providers: [
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParams: { returnUrl } } }
+        }
+      ]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(Login);
+    fixture = TestBed.createComponent(LoginComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
-  });
+  };
 
   it('should create', () => {
-    expect(component).toBeTruthy();
+    return setup(undefined).then(() => {
+      expect(component).toBeTruthy();
+    });
+  });
+
+  it('uses allowed returnUrl when provided', async () => {
+    await setup('/achievements');
+    expect(component.returnUrl).toBe('/achievements');
+  });
+
+  it('rejects external returnUrl', async () => {
+    await setup('https://evil.example/steal');
+    expect(component.returnUrl).toBe('/dashboard');
   });
 });

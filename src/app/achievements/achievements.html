@@ -1,0 +1,56 @@
+<div class="achievements-container">
+  <header class="page-header">
+    <div class="title-group">
+      <h1>EDGE ACHIEVEMENTS</h1>
+      <span class="subtitle">Global Delivery</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-secondary" (click)="exportToCSV()">Export CSV</button>
+      <button class="btn-primary" (click)="saveAchievements()">Save All</button>
+    </div>
+  </header>
+
+  <nav class="tab-navigation">
+    <button *ngFor="let cat of categories" 
+            [class.active]="activeTab === cat" 
+            (click)="setActiveTab(cat)">
+      {{ cat }} 
+      <span class="badge">{{ getCount(cat) }}</span>
+    </button>
+  </nav>
+
+  <div class="category-content">
+    <div class="content-header">
+      <h2>{{ activeTab }} Callouts</h2>
+      <button class="btn-add" (click)="addItem()">+ Add Achievement</button>
+    </div>
+
+    <div class="table-wrapper">
+      <table class="achievement-table">
+        <thead>
+          <tr>
+            <th style="width: 30%;">What's Done</th>
+            <th>Outcome</th>
+            <th>Quantification</th>
+            <th>Customers</th>
+            <th>What's Next</th>
+            <th style="width: 50px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of achievementsData[activeTab]; let i = index">
+            <td><textarea [(ngModel)]="item.whatsDone"></textarea></td>
+            <td><input type="text" [(ngModel)]="item.outcome"></td>
+            <td><input type="text" [(ngModel)]="item.quantification"></td>
+            <td><input type="text" [(ngModel)]="item.customers"></td>
+            <td><input type="text" [(ngModel)]="item.whatsNext"></td>
+            <td><button class="btn-delete" (click)="removeItem(i)">×</button></td>
+          </tr>
+          <tr *ngIf="getCount(activeTab) === 0">
+            <td colspan="6" class="empty-state">Click 'Add Achievement' to record your first {{ activeTab }} milestone.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
